@@ -141,6 +141,7 @@ class FactScorer(object):
                 topics = tqdm(topics)
 
             atomic_facts = []
+            # topic, gen = list(zip(topics, generations))[0]
             for topic, gen in zip(topics, generations):
                 # optionally, first detect if the response is abstained
                 response_abstained = is_response_abstained(gen, self.abstain_detection_type)
@@ -167,7 +168,11 @@ class FactScorer(object):
             total_words = 0
             for topic, generation, facts in zip(topics, generations, atomic_facts):
                 if facts is not None:
-                    total_words += self._get_score(topic, generation, facts, knowledge_source, cost_estimate=self.cost_estimate)
+                    try:
+                        total_words += self._get_score(topic, generation, facts, knowledge_source, cost_estimate=self.cost_estimate)
+                    except Exception as e:
+                        print(e)
+                        continue
 
             self.print_cost_estimates(total_words, task="factscore evaluation", model="gpt-3.5-turbo")
 
@@ -177,18 +182,23 @@ class FactScorer(object):
         scores = []
         init_scores = []
         decisions = []
+        # topic, generation, facts = list(zip(topics, generations, atomic_facts))[0]
         for topic, generation, facts in zip(topics, generations, atomic_facts):
             if facts is None:
                 decisions.append(None)
             else:
-                decision = self._get_score(topic, generation, facts, knowledge_source)
+                try:
+                    decision = self._get_score(topic, generation, facts, knowledge_source)
+                except Exception as e:
+                    print(e)
+                    continue
                 score = np.mean([d["is_supported"] for d in decision])
-                
+
                 if gamma:
                     init_scores.append(score)
                     penalty = 1.0 if len(facts)>gamma else np.exp(1-gamma/len(facts))
                     score = penalty * score
-                
+
                 decisions.append(decision)
                 scores.append(score)
                 if len(scores) % 10 == 0:
@@ -203,12 +213,13 @@ class FactScorer(object):
 
         if gamma:
             out["init_score"] = np.mean(init_scores)
-        
+
         return out
 
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
+        # atom = atomic_facts[0][0]
         for atom in atomic_facts:
             atom = atom.strip()
             if self.lm:
@@ -216,7 +227,8 @@ class FactScorer(object):
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
                 context = ""
                 for psg_idx, psg in enumerate(reversed(passages)):
-                    context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "").replace("</s>", ""))
+                    text = psg["text"].replace("<s>", "").replace("</s>", "")
+                    context += "Title: {}\nText: {}\n\n".format(psg["title"], text)
                 definition += context.strip()
                 if not definition[-1] in string.punctuation:
                     definition += "."
@@ -228,7 +240,6 @@ class FactScorer(object):
                     elif cost_estimate == "ignore_cache":
                         total_words += len(prompt.split())
                     continue
-
                 output = self.lm.generate(prompt)
 
                 if type(output[1])==np.ndarray:
@@ -308,7 +319,7 @@ if __name__ == '__main__':
                         action="store_true")
     parser.add_argument('--verbose',
                         action="store_true",
-                        help="for printing out the progress bar")    
+                        help="for printing out the progress bar")
     parser.add_argument('--print_rate_limit_error',
                         action="store_true",
                         help="for printing out rate limit error when using OpenAI keys")
@@ -332,7 +343,10 @@ if __name__ == '__main__':
 
     tot = 0
     topics, generations, atomic_facts = [], [], []
-    with open(args.input_path) as f:
+    inputpath = args.input_path
+    # inputpath = 'factscoreoutput_rlhf2-hw9d539_s1950.jsonl'
+    # line = next(open(inputpath))
+    with open(inputpath) as f:
         for line in f:
             dp = json.loads(line)
             tot += 1
@@ -342,10 +356,12 @@ if __name__ == '__main__':
                     continue
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
+                # generations.append(dp["generation"])
                 atomic_facts.append([atom["text"] for sent in dp["annotations"] for atom in sent["model-atomic-facts"]])
             else:
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
+                # generations.append(dp["generation"])
             if args.n_samples is not None and tot==args.n_samples:
                 break
     out = fs.get_score(topics=topics,
@@ -363,4 +379,3 @@ if __name__ == '__main__':
     # Save out as a json file
     with open(args.input_path.replace(".jsonl", f"_factscore_output.json"), 'w') as f:
         f.write(json.dumps(out) + "\n")
-

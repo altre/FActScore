@@ -60,6 +60,7 @@ We expect running FActScore costs about $1 of the API cost per 100 sentences. Fo
 
 ```bash
 python -m factscore.factscorer --input_path {input_path} --model_name {estimator_name} --openai_key {openai_key}
+with-proxy python -m factscore.factscorer --input_path data/unlabeled/test.jsonl --openai_key openaikey
 ```
 
 - `--input_path` can be something like `data/unlabeled/InstructGPT.jsonl`. It should be a `.jsonl` format where each line contains `topic` (a topic entity that corresponds to the Wikipedia title) and `output` (a generation from the model).
@@ -177,4 +178,3 @@ for fn in os.listdir(dirname):
         fn.split(".")[0], len(n_facts)*100/500, np.mean(n_facts), np.mean(chatgpt_fs)*100, np.mean(llama_fs)*100
     ))
 ```
-
