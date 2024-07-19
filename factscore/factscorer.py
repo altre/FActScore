@@ -141,7 +141,6 @@ class FactScorer(object):
                 topics = tqdm(topics)
 
             atomic_facts = []
-            # topic, gen = list(zip(topics, generations))[0]
             for topic, gen in zip(topics, generations):
                 # optionally, first detect if the response is abstained
                 response_abstained = is_response_abstained(gen, self.abstain_detection_type)
@@ -182,7 +181,6 @@ class FactScorer(object):
         scores = []
         init_scores = []
         decisions = []
-        # topic, generation, facts = list(zip(topics, generations, atomic_facts))[0]
         for topic, generation, facts in zip(topics, generations, atomic_facts):
             if facts is None:
                 decisions.append(None)
@@ -219,7 +217,6 @@ class FactScorer(object):
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
-        # atom = atomic_facts[0][0]
         for atom in atomic_facts:
             atom = atom.strip()
             if self.lm:
@@ -227,8 +224,8 @@ class FactScorer(object):
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
                 context = ""
                 for psg_idx, psg in enumerate(reversed(passages)):
-                    text = psg["text"].replace("<s>", "").replace("</s>", "")
-                    context += "Title: {}\nText: {}\n\n".format(psg["title"], text)
+                    context += "Title: {}\nText: {}\n\n".format(psg["title"], psg["text"].replace("<s>", "")
+.replace("</s>", ""))
                 definition += context.strip()
                 if not definition[-1] in string.punctuation:
                     definition += "."
@@ -343,10 +340,7 @@ if __name__ == '__main__':
 
     tot = 0
     topics, generations, atomic_facts = [], [], []
-    inputpath = args.input_path
-    # inputpath = 'factscoreoutput_rlhf2-hw9d539_s1950.jsonl'
-    # line = next(open(inputpath))
-    with open(inputpath) as f:
+    with open(args.input_path) as f:
         for line in f:
             dp = json.loads(line)
             tot += 1
@@ -356,12 +350,10 @@ if __name__ == '__main__':
                     continue
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-                # generations.append(dp["generation"])
                 atomic_facts.append([atom["text"] for sent in dp["annotations"] for atom in sent["model-atomic-facts"]])
             else:
                 topics.append(dp["topic"])
                 generations.append(dp["output"])
-                # generations.append(dp["generation"])
             if args.n_samples is not None and tot==args.n_samples:
                 break
     out = fs.get_score(topics=topics,

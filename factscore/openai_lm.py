@@ -10,13 +10,14 @@ key_path = 'openaikey'
 assert os.path.exists(key_path), f"Please place your OpenAI APT Key in {key_path}."
 with open(key_path, 'r') as f:
     api_key = f.readline()
+
 client = OpenAI(api_key=api_key.strip())
 
 class OpenAIModel(LM):
     def __init__(self, model_name, cache_file=None, key_path="api.key"):
         self.model_name = model_name
         self.key_path = key_path
-        self.temp = 0.
+        self.temp = 0.7
         self.save_interval = 100
         super().__init__(cache_file)
     def load_model(self):
@@ -48,7 +49,7 @@ class OpenAIModel(LM):
         else:
             raise NotImplementedError()
 
-def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0., verbose=False):
+def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0.7, verbose=False):
     # call GPT-3 API until result is provided and then return it
     response = None
     received = False
@@ -60,21 +61,20 @@ def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0., ver
                                                     max_tokens=max_len,
                                                     temperature=temp)
             received = True
-        except:
+        except Exception as e:
             # print(message)
             num_rate_errors += 1
             error = sys.exc_info()[0]
-            if error == openai.InvalidRequestError:
-                # something is wrong: e.g. prompt too long
-                logging.critical(f"InvalidRequestError\nPrompt passed in:\n\n{message}\n\n")
-                assert False
-
-            logging.error("API error: %s (%d). Waiting %dsec" % (error, num_rate_errors, np.power(2, num_rate_errors)))
+            # if error == openai.InvalidRequestError:
+            #     # something is wrong: e.g. prompt too long
+            #     logging.critical(f"InvalidRequestError\nPrompt passed in:\n\n{message}\n\n")
+            #     assert False
+            logging.critical("API error: %s (%d). Waiting %dsec" % (error, num_rate_errors, np.power(2, num_rate_errors)))
             time.sleep(np.power(2, num_rate_errors))
     return response
 
 
-def call_GPT3(prompt, model_name="gpt-3.5-turbo-instruct", max_len=512, temp=0., num_log_probs=0, echo=False, verbose=False):
+def call_GPT3(prompt, model_name="gpt-3.5-turbo-instruct", max_len=512, temp=0.7, num_log_probs=0, echo=False, verbose=False):
     # call GPT-3 API until result is provided and then return it
     response = None
     received = False
@@ -88,13 +88,13 @@ def call_GPT3(prompt, model_name="gpt-3.5-turbo-instruct", max_len=512, temp=0.,
                                                 logprobs=num_log_probs,
                                                 echo=echo)
             received = True
-        except:
+        except Exception as e:
             error = sys.exc_info()[0]
             num_rate_errors += 1
             if error == openai.BadRequestError:
                 # something is wrong: e.g. prompt too long
                 logging.critical(f"BadRequestError\nPrompt passed in:\n\n{prompt}\n\n")
                 assert False
-            print("API error: %s (%d)" % (error, num_rate_errors))
+            logging.critical("API error: %s (%d)" % (error, num_rate_errors))
             time.sleep(np.power(2, num_rate_errors))
     return response

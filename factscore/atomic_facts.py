@@ -38,8 +38,6 @@ class AtomicFactGenerator(object):
     def run(self, generation, cost_estimate=None):
         """Convert the generation into a set of atomic facts. Return a total words cost if cost_estimate != None."""
         assert isinstance(generation, str), "generation must be a string"
-        R = re.compile(r"(\*\*.*?\*\*)")
-        generation = R.sub("", generation)
         paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
         return self.get_atomic_facts_from_paragraph(paragraphs, cost_estimate=cost_estimate)
 
@@ -122,7 +120,7 @@ class AtomicFactGenerator(object):
                 for fact in demons[match]:
                     prompt = prompt + "- {}\n".format(fact)
                 prompt = prompt + "\n"
-            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n- ".format(sentence)
+            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
             prompts.append(prompt)
             prompt_to_sent[prompt] = sentence
 
@@ -135,7 +133,7 @@ class AtomicFactGenerator(object):
             return total_words_estimate
         else:
             for prompt in prompts:
-                output, _ = self.openai_lm._generate(prompt)
+                output, _ = self.openai_lm.generate(prompt)
                 atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
 
             for key, value in demons.items():
@@ -153,7 +151,7 @@ def best_demos(query, bm25, demons_sents, k):
 
 # transform InstructGPT output into sentences
 def text_to_sentences(text):
-    sentences = text.split("- ")
+    sentences = text.split("- ")[1:]
     sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
     if len(sentences) > 0:
         if sentences[-1][-1] != '.':

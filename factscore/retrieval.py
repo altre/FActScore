@@ -1,3 +1,4 @@
+from sentence_transformers import SentenceTransformer
 import json
 import time
 import os
@@ -124,7 +125,6 @@ class Retrieval(object):
         self.add_n_embed = 0
 
     def load_encoder(self):
-        from sentence_transformers import SentenceTransformer
         encoder = SentenceTransformer("sentence-transformers/" + self.retrieval_type)
         encoder = encoder.cuda()
         encoder = encoder.eval()
